@@ -2,6 +2,37 @@ import {defineArrayMember, defineField, defineType} from 'sanity'
 import {PlayIcon} from '@sanity/icons/Play'
 
 /**
+ * Only providers Vertex can both ingest and play back are accepted
+ * (AGENTS.md §9). Bunny is included under its delivery hostnames as well as
+ * pull-zone CDN domains.
+ */
+const SUPPORTED_VIDEO_HOSTS = [
+  // YouTube
+  'youtube.com',
+  'youtu.be',
+  'youtube-nocookie.com',
+  // Vimeo
+  'vimeo.com',
+  // Bunny
+  'mediadelivery.net',
+  'bunnycdn.com',
+  'b-cdn.net',
+]
+
+function isSupportedVideoUrl(url: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(url).hostname.toLowerCase()
+  } catch {
+    return false
+  }
+
+  return SUPPORTED_VIDEO_HOSTS.some(
+    (host) => hostname === host || hostname.endsWith(`.${host}`)
+  )
+}
+
+/**
  * A lesson does not store its parent course (AGENTS.md §8) — the course is
  * derived with a reverse reference, which is what keeps a lesson reusable and
  * the module ordering single-sourced on the course.
@@ -48,7 +79,19 @@ export const lesson = defineType({
         'A YouTube, Vimeo, or Bunny URL. Played on the lesson page as a provider embed.',
       type: 'url',
       group: 'video',
-      validation: (rule) => rule.required().uri({scheme: ['http', 'https']}),
+      validation: (rule) =>
+        rule
+          .required()
+          .uri({scheme: ['http', 'https']})
+          .custom((value) => {
+            // `required()` already reports an empty value; don't double-report.
+            if (typeof value !== 'string' || value === '') return true
+
+            return (
+              isSupportedVideoUrl(value) ||
+              'Only YouTube, Vimeo, and Bunny videos are supported.'
+            )
+          }),
     }),
     defineField({
       name: 'poster',

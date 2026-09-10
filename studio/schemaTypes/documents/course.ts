@@ -1,11 +1,59 @@
 import {defineArrayMember, defineField, defineType} from 'sanity'
 import {BookIcon} from '@sanity/icons/Book'
 
+type LessonReference = {_key?: string; _ref?: string}
+type ModuleValue = {_key?: string; lessons?: LessonReference[]}
+
+/**
+ * A lesson must appear at most once in a course. Numbering, prev/next, and the
+ * lesson count are all derived from module order (AGENTS.md §8), so a lesson
+ * listed twice would silently produce two labels for one page.
+ *
+ * This lives on the document rather than on `courseModule.lessons` because a
+ * field-level `.unique()` cannot see across modules — and cannot see duplicates
+ * at all on references, whose distinct `_key`s stop them comparing equal.
+ */
+function validateUniqueLessons(modules: ModuleValue[] | undefined) {
+  const seen = new Set<string>()
+  const duplicatePaths: Array<Array<string | {_key: string}>> = []
+
+  for (const module of modules ?? []) {
+    for (const lesson of module?.lessons ?? []) {
+      const ref = lesson?._ref
+      if (!ref) continue
+
+      if (seen.has(ref)) {
+        if (module._key && lesson._key) {
+          duplicatePaths.push([
+            'modules',
+            {_key: module._key},
+            'lessons',
+            {_key: lesson._key},
+          ])
+        }
+      } else {
+        seen.add(ref)
+      }
+    }
+  }
+
+  if (duplicatePaths.length === 0) return true
+
+  return {
+    message: 'Each lesson can only appear once across a course’s modules.',
+    paths: duplicatePaths,
+  }
+}
+
 export const course = defineType({
   name: 'course',
   title: 'Course',
   type: 'document',
   icon: BookIcon,
+  validation: (rule) =>
+    rule.custom((doc) =>
+      validateUniqueLessons((doc as {modules?: ModuleValue[]} | undefined)?.modules)
+    ),
   groups: [
     {name: 'content', title: 'Content', default: true},
     {name: 'marketing', title: 'Marketing'},

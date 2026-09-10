@@ -30,7 +30,11 @@ export const courseModule = defineType({
       description: 'Ordered. Lesson numbers are derived from this order.',
       type: 'array',
       of: [defineArrayMember({type: 'reference', to: [{type: 'lesson'}]})],
-      validation: (rule) => rule.required().min(1).unique(),
+      // No `.unique()` here: array members of type reference each carry their
+      // own `_key`, so they never compare equal and the check never fires.
+      // Duplicates are caught course-wide by the `course` document validation,
+      // which compares the underlying `_ref` values across every module.
+      validation: (rule) => rule.required().min(1),
     }),
   ],
   preview: {

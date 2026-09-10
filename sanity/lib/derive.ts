@@ -129,8 +129,11 @@ export function findLesson<M extends OutlineModule, L extends OutlineLesson>(
 /** Seconds to the UI's duration string: "45m", "1h 28m", "18h 24m". */
 export function formatDuration(seconds: number | null | undefined): string {
   const total = Math.max(0, Math.round(seconds ?? 0))
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.round((total % 3600) / 60)
+  // Round to whole minutes *before* splitting, otherwise a value that rounds up
+  // to the next hour renders as "1h 60m" (e.g. 7170s) instead of "2h".
+  const totalMinutes = Math.round(total / 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
 
   if (hours === 0) return `${minutes}m`
   if (minutes === 0) return `${hours}h`
