@@ -33,6 +33,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !/.env.example
+!/studio/.env.example
 
 # vercel
 .vercel
@@ -40,6 +41,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sanity studio workspace
+/studio/node_modules
+/studio/dist
+/studio/schema.json
+/studio/.sanity
 
 # agent tooling
 /.gstack/
