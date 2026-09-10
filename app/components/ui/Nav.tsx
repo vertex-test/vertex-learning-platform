@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ReactNode } from "react";
 import { Logo } from "./Logo";
 
 const links = [
@@ -7,11 +8,14 @@ const links = [
 ];
 
 /* Design system §13. Presentational only — auth wiring comes later. */
-export function Nav({ activeHref }: { activeHref?: string } = {}) {
+export function Nav({
+  activeHref,
+  actions,
+}: { activeHref?: string; actions?: ReactNode } = {}) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-200 bg-white px-6 py-4 md:px-8">
+    <header className="flex flex-wrap items-center gap-x-14 gap-y-4 border-b border-neutral-200 bg-white px-6 py-4 md:px-8">
       <Logo />
-      <nav className="flex items-center gap-6 text-body-lg font-medium">
+      <nav className="order-last flex w-full items-center gap-8 text-body-lg font-medium md:order-none md:w-auto">
         {links.map((link) => (
           <Link
             key={link.href}
@@ -26,6 +30,9 @@ export function Nav({ activeHref }: { activeHref?: string } = {}) {
           </Link>
         ))}
       </nav>
+      {actions && (
+        <div className="ml-auto flex items-center gap-4">{actions}</div>
+      )}
     </header>
   );
 }
