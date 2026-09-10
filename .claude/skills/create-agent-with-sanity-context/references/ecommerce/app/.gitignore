@@ -40,5 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# agent tooling
-/.gstack/
+# sanity typegen - committed for Vercel builds
+# sanity.types.ts
