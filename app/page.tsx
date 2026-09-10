@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Bell, Star, User } from "lucide-react";
-import { ButtonLink } from "./components/ui/Button";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { ArrowRight, Bell, Star } from "lucide-react";
+import { Button, ButtonLink } from "./components/ui/Button";
 import { CourseCard } from "./components/ui/Card/CourseCard";
 import {
   DockerIcon,
@@ -45,8 +46,7 @@ const courses = [
   },
 ];
 
-/* Presentational only (AGENTS.md §7) — the bell has no menu, and the avatar
-   becomes Clerk's <UserButton /> when auth lands. */
+/* The bell stays presentational (AGENTS.md §7); the account slot is Clerk. */
 function HeaderActions() {
   return (
     <>
@@ -57,13 +57,24 @@ function HeaderActions() {
       >
         <Bell className="h-5 w-5" strokeWidth={1.75} />
       </button>
-      <span
-        aria-label="Your account"
-        role="img"
-        className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-neutral-100 text-neutral-500"
-      >
-        <User className="h-5 w-5" strokeWidth={1.75} />
-      </span>
+      <Show when="signed-out">
+        <SignInButton mode="modal">
+          <Button variant="text">Sign in</Button>
+        </SignInButton>
+        <SignUpButton mode="modal">
+          <Button variant="secondary">Sign up</Button>
+        </SignUpButton>
+      </Show>
+      <Show when="signed-in">
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox:
+                "h-11 w-11 border border-neutral-200 rounded-full",
+            },
+          }}
+        />
+      </Show>
     </>
   );
 }
