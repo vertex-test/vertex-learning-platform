@@ -30,6 +30,8 @@
   --color-accent-lesson: #4f46e5; /* LESSON badge text (09) */
   --color-accent-lesson-bg: #eef0fb; /* LESSON badge fill (09) */
   --color-success: #22c55e; /* Completed status ring (10) */
+  --color-canvas: #fbf8f5; /* warm page ground behind the white surfaces */
+  --color-hatch: rgba(226, 150, 92, 0.18); /* diagonal gutter hairlines */
 
   --color-background: var(--color-white);
   --color-foreground: var(--color-neutral-900);
@@ -85,6 +87,17 @@
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 12px 24px -4px rgba(15, 23, 42, 0.1);
   --shadow-xl: 0 20px 40px -8px rgba(15, 23, 42, 0.12);
+}
+
+/* The hatched gutters framing the page column (design/vertex-home.png). */
+.page-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-hatch) 0,
+    var(--color-hatch) 1px,
+    transparent 1px,
+    transparent 9px
+  );
 }
 
 body {
