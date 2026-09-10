@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored skill reference code — not ours to lint.
+    ".agents/**",
+    ".claude/**",
   ]),
 ]);
 
