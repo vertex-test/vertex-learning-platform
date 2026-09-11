@@ -22,9 +22,10 @@ courses, lessons, instructors, categories or copy — and do not modify either s
   already written against the current schema field names.
 - `studio/scripts/seed/seed.ndjson` — 10 course, 120 lesson, 5 instructor, 6 category.
   All references resolve, every lesson is referenced by exactly one module, no orphans.
-- `studio/scripts/seed/videos.json` — 120 entries keyed by lesson slug. Verified 1:1 against
-  the lessons: same slug set, matching YouTube id in `videoUrl`, matching duration, matching
-  thumbnail URL. 120 unique video ids.
+- `studio/scripts/seed/videos.json` — 120 entries keyed by lesson slug, 120 unique video ids.
+  Checked 1:1 against the lessons at inspection time — same slug set, matching YouTube id in
+  `videoUrl`, matching duration, matching thumbnail URL. The guard in `prepare.mjs` re-checks
+  the first three of those on every run; it does not compare thumbnail URLs.
 - `sanity debug` — CLI logged in as administrator on `xxdqhkai`, dataset `production`.
 - Dataset pre-state: 12 documents, all `system.*`. No content, no assets.
 
@@ -70,8 +71,11 @@ courses, lessons, instructors, categories or copy — and do not modify either s
    part of the run.
 
 7. **Target and safety.** Import into `production` (the dataset both workspaces already point
-   at), with `--replace` so re-running is idempotent. The dataset holds no content today, so
-   nothing is overwritten. CLI auth is used; no token is added to any file.
+   at), with `--replace`. That makes the run an upsert: re-running overwrites documents with
+   the same `_id`, but it never deletes anything, so a document dropped from the seed would
+   linger in the dataset until it is removed by hand. The import does not clear the dataset
+   first — clearing is destructive and out of scope here. The dataset holds no content today,
+   so nothing is overwritten on this run. CLI auth is used; no token is added to any file.
 
 ## Files I expect to touch
 

@@ -6,6 +6,11 @@
  * way `sanity dev` does, so the name is read here — from SANITY_STUDIO_DATASET,
  * else from the workspace's .env.local — rather than hardcoded in a script.
  *
+ * This is an upsert, not a snapshot: `--replace` overwrites documents with the
+ * same `_id` and never deletes, so a document dropped from the seed stays in the
+ * dataset until it is removed by hand. The dataset is deliberately not cleared
+ * first.
+ *
  *   node scripts/seed/import.mjs [extra sanity flags]
  */
 import {execFileSync} from 'node:child_process'
