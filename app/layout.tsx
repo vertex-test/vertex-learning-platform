@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+import { PostHogIdentity } from "./components/PostHogIdentity";
 import "./globals.css";
 
 const playfairDisplay = Playfair_Display({
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
+          <PostHogIdentity />
           {children}
         </ClerkProvider>
       </body>
