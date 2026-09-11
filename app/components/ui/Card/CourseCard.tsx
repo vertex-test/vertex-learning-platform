@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { ChartNoAxesColumn, Clock, Folder } from "lucide-react";
 import { ReactNode } from "react";
+import { AnalyticsLink } from "../AnalyticsLink";
 import { Card } from "./Card";
 
 export interface CourseCardProps {
@@ -108,11 +108,18 @@ export function CourseCard({
   if (!href) return body;
 
   return (
-    <Link
+    <AnalyticsLink
       href={href}
+      eventName="course_selected"
+      eventProperties={{
+        course_path: href,
+        layout,
+        level,
+        module_count: moduleCount,
+      }}
       className="flex rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2"
     >
       {body}
-    </Link>
+    </AnalyticsLink>
   );
 }
