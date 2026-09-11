@@ -1,89 +1,30 @@
 import Link from "next/link";
-import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
-import { ArrowRight, Bell, Star } from "lucide-react";
-import { Button, ButtonLink } from "./components/ui/Button";
-import { CourseCard } from "./components/ui/Card/CourseCard";
-import {
-  DockerIcon,
-  NextjsIcon,
-  TypeScriptIcon,
-} from "./components/ui/CourseIcon";
+import { ArrowRight, Star } from "lucide-react";
+
+import { COURSES_CATALOG_QUERY } from "@/sanity/lib/queries";
+import { sanityFetch } from "@/sanity/lib/fetch";
+import type { COURSES_CATALOG_QUERY_RESULT } from "@/sanity.types";
+
+import { SiteHeader } from "./components/SiteHeader";
+import { CatalogGrid } from "./components/course/CatalogGrid";
+import { ButtonLink } from "./components/ui/Button";
 import { HeroSearch } from "./components/ui/HeroSearch";
-import { Nav } from "./components/ui/Nav";
 
-/**
- * Placeholder catalog. Shaped like the eventual `course` projection
- * (AGENTS.md §8) so swapping in the GROQ fetch is mechanical.
- */
-const courses = [
-  {
-    slug: "nextjs-for-production",
-    title: "Next.js for Production",
-    summary: "Build scalable, high-performance web applications with Next.js.",
-    level: "Intermediate",
-    duration: "18h 24m",
-    moduleCount: 12,
-    icon: <NextjsIcon />,
-  },
-  {
-    slug: "docker-essentials",
-    title: "Docker Essentials",
-    summary:
-      "Containerize applications and streamline your development workflow.",
-    level: "Beginner",
-    duration: "10h 12m",
-    moduleCount: 8,
-    icon: <DockerIcon />,
-  },
-  {
-    slug: "typescript-deep-dive",
-    title: "TypeScript Deep Dive",
-    summary: "Go beyond the basics and write safer, more expressive code.",
-    level: "Intermediate",
-    duration: "14h 36m",
-    moduleCount: 10,
-    icon: <TypeScriptIcon />,
-  },
-];
+/** The home page previews the catalog; the full list lives at /courses. */
+const PREVIEW_COUNT = 3;
 
-/* The bell stays presentational (AGENTS.md §7); the account slot is Clerk. */
-function HeaderActions() {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Notifications"
-        className="rounded-sm p-1 text-neutral-700 outline-none hover:text-neutral-900 focus-visible:ring-2 focus-visible:ring-primary-400"
-      >
-        <Bell className="h-5 w-5" strokeWidth={1.75} />
-      </button>
-      <Show when="signed-out">
-        <SignInButton mode="modal">
-          <Button variant="text">Sign in</Button>
-        </SignInButton>
-        <SignUpButton mode="modal">
-          <Button variant="secondary">Sign up</Button>
-        </SignUpButton>
-      </Show>
-      <Show when="signed-in">
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox:
-                "h-11 w-11 border border-neutral-200 rounded-full",
-            },
-          }}
-        />
-      </Show>
-    </>
-  );
-}
+export default async function Home() {
+  // Already ordered popular-first, then title (sanity/lib/queries.ts).
+  const catalog: COURSES_CATALOG_QUERY_RESULT = await sanityFetch({
+    query: COURSES_CATALOG_QUERY,
+    tags: ["course"],
+  });
+  const courses = catalog.slice(0, PREVIEW_COUNT);
 
-export default function Home() {
   return (
     <div className="page-hatch flex flex-1 flex-col bg-canvas sm:px-8">
       <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col bg-canvas sm:border-x sm:border-neutral-200">
-        <Nav actions={<HeaderActions />} />
+        <SiteHeader />
 
         {/* Hero */}
         <section className="flex flex-col items-center px-6 pt-14 pb-14 text-center md:px-12 md:pt-[70px] md:pb-[52px]">
@@ -129,20 +70,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
-              <CourseCard
-                key={course.slug}
-                layout="stacked"
-                href={`/courses/${course.slug}`}
-                icon={course.icon}
-                title={course.title}
-                summary={course.summary}
-                level={course.level}
-                duration={course.duration}
-                moduleCount={course.moduleCount}
-              />
-            ))}
+          <div className="mt-6">
+            <CatalogGrid courses={courses} />
           </div>
         </section>
 
