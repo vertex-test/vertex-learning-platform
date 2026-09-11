@@ -19,6 +19,7 @@ export const lessonResource = defineType({
           {title: 'Code repository', value: 'code'},
           {title: 'Download', value: 'download'},
           {title: 'Video', value: 'video'},
+          {title: 'Link', value: 'link'},
         ],
       },
       initialValue: 'documentation',
