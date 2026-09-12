@@ -25,6 +25,13 @@ export function LessonResultCard({
   rank: number;
 }) {
   const href = `/lessons/${result.slug}`;
+  const eventProperties = {
+    query,
+    rank,
+    result_type: "lesson",
+    lesson_slug: result.slug,
+    course_slug: result.courseSlug ?? null,
+  };
 
   return (
     <article className="flex w-full flex-col gap-5 rounded-md border border-neutral-200 bg-white p-4 shadow-sm sm:flex-row sm:items-stretch">
@@ -80,13 +87,8 @@ export function LessonResultCard({
         <h2 className="text-heading-2 font-semibold text-neutral-900">
           <AnalyticsLink
             href={href}
-            eventName="search_result_clicked"
-            eventProperties={{
-              query,
-              rank,
-              lessonSlug: result.slug,
-              resultKind: "lesson",
-            }}
+            eventName="search_result_opened"
+            eventProperties={eventProperties}
             className="outline-none hover:text-primary-500 focus-visible:ring-2 focus-visible:ring-primary-400"
           >
             {result.title}
@@ -106,13 +108,8 @@ export function LessonResultCard({
             href={href}
             tabIndex={-1}
             aria-hidden="true"
-            eventName="search_result_clicked"
-            eventProperties={{
-              query,
-              rank,
-              lessonSlug: result.slug,
-              resultKind: "lesson",
-            }}
+            eventName="search_result_opened"
+            eventProperties={eventProperties}
             className="inline-flex items-center gap-2 text-body font-semibold whitespace-nowrap text-neutral-900 outline-none hover:text-primary-500"
           >
             View lesson

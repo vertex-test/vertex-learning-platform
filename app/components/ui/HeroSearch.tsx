@@ -4,6 +4,8 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { captureEvent } from "@/app/lib/posthog-client";
+
 /**
  * The hero search field (design/vertex-home.png) — taller than the §08
  * primitive and with a bordered key-cap instead of plain shortcut text.
@@ -58,6 +60,15 @@ export function HeroSearch({
         event.preventDefault();
         const query = value.trim();
         if (!query) return;
+
+        // The top of the search funnel: every intent to search, including the
+        // ones the agent later fails to answer.
+        captureEvent("search_submitted", {
+          query,
+          query_length: query.length,
+          source: variant,
+        });
+
         router.push(`/search?q=${encodeURIComponent(query)}`);
       }}
     >

@@ -51,6 +51,7 @@ next-env.d.ts
 # generated import files from the studio's prepare scripts
 /studio/scripts/seed/.out
 /studio/scripts/context/.out
+/studio/scripts/ingest/.out
 
 # agent tooling
 /.gstack/

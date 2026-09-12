@@ -1,0 +1,72 @@
+[
+  {
+    "event_name": "catalog_viewed",
+    "event_description": "A learner opened the full course catalog.",
+    "file": "app/courses/page.tsx"
+  },
+  {
+    "event_name": "course_viewed",
+    "event_description": "A learner opened a course detail page.",
+    "file": "app/courses/[slug]/page.tsx"
+  },
+  {
+    "event_name": "search_submitted",
+    "event_description": "A learner submitted a search query from the hero or compact search field.",
+    "file": "app/components/ui/HeroSearch.tsx"
+  },
+  {
+    "event_name": "search_performed",
+    "event_description": "The search agent returned ranked results to the browser.",
+    "file": "app/components/search/SearchResults.tsx"
+  },
+  {
+    "event_name": "search_failed",
+    "event_description": "A search did not return results because of a rate limit, an agent error or a network failure.",
+    "file": "app/components/search/SearchResults.tsx"
+  },
+  {
+    "event_name": "search_results_sorted",
+    "event_description": "A learner changed the sort order on the search results page.",
+    "file": "app/components/search/SearchResults.tsx"
+  },
+  {
+    "event_name": "search_result_opened",
+    "event_description": "A learner opened a search result, carrying whether it was a video moment or a lesson.",
+    "file": "app/components/search/VideoResultCard.tsx"
+  },
+  {
+    "event_name": "lesson_video_played",
+    "event_description": "A learner pressed play on a lesson video.",
+    "file": "app/components/lesson/LessonPlayer.tsx"
+  },
+  {
+    "event_name": "lesson_video_progressed",
+    "event_description": "Estimated watch depth crossed a 25, 50, 75 or 95 percent milestone.",
+    "file": "app/lib/analytics/watch-depth.ts"
+  },
+  {
+    "event_name": "lesson_completed",
+    "event_description": "Estimated watch depth reached 95 percent of a lesson video.",
+    "file": "app/lib/analytics/watch-depth.ts"
+  },
+  {
+    "event_name": "lesson_resume_used",
+    "event_description": "A learner arrived at a lesson positioned at a specific second, resuming rather than starting over.",
+    "file": "app/components/lesson/LessonPlayer.tsx"
+  },
+  {
+    "event_name": "learning_started",
+    "event_description": "A learner pressed Start or Continue Learning on a course.",
+    "file": "app/components/course/CourseProgressBar.tsx"
+  },
+  {
+    "event_name": "search_executed",
+    "event_description": "Server-side record of one search agent run, with its outcome, model, step count and latency.",
+    "file": "app/api/search/route.ts"
+  },
+  {
+    "event_name": "search_rate_limited",
+    "event_description": "Server-side: a search was refused by the per-IP rate limiter.",
+    "file": "app/api/search/route.ts"
+  }
+]

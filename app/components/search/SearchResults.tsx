@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { captureEvent } from "@/app/lib/posthog-client";
+import { analyticsHeaders, captureEvent } from "@/app/lib/posthog-client";
 import {
   isSortOption,
   SORT_OPTIONS,
@@ -15,6 +15,7 @@ import { HeroSearch } from "../ui/HeroSearch";
 import { Select } from "../ui/Select";
 import { LessonResultCard } from "./LessonResultCard";
 import { SearchEmptyState } from "./SearchEmptyState";
+import { VideoResultCard } from "./VideoResultCard";
 
 /**
  * The search results page (design/vertex-search.png).
@@ -47,6 +48,8 @@ function sortResults(
   // "relevance" is the agent's own ranking, which is the order it arrived in.
   if (sort === "relevance") return results;
 
+  // A video moment carries its lesson's duration — the only duration in the
+  // data — so both kinds sort on the same field.
   const direction = sort === "shortest" ? 1 : -1;
   return [...results].sort((a, b) => {
     // An unknown duration is not a zero-length lesson: sorting it as 0 would
@@ -100,12 +103,32 @@ export function SearchResults({ query }: { query: string }) {
     if (!query) return;
 
     const controller = new AbortController();
+    const startedAt = Date.now();
+
+    /** One failure event per search, whatever stage it failed at. */
+    function captureSearchFailure(reason: string) {
+      const key = `${query}:failed`;
+      if (captured.current === key) return;
+      captured.current = key;
+
+      captureEvent("search_failed", {
+        query,
+        query_length: query.length,
+        reason,
+        duration_ms: Date.now() - startedAt,
+      });
+    }
 
     async function run() {
       try {
         const response = await fetch("/api/search", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            // Lets the route's own `search_executed` land on this person and
+            // this session (app/lib/posthog-server.ts).
+            ...analyticsHeaders(),
+          },
           body: JSON.stringify({ query }),
           signal: controller.signal,
         });
@@ -119,6 +142,9 @@ export function SearchResults({ query }: { query: string }) {
             status: "error",
             message: fallback.message ?? "Search is unavailable right now.",
           });
+          captureSearchFailure(
+            response.status === 429 ? "rate_limited" : `http_${response.status}`,
+          );
           return;
         }
 
@@ -149,6 +175,7 @@ export function SearchResults({ query }: { query: string }) {
               setState((current) => ({ ...current, message: event.message }));
             } else if (event.type === "error") {
               setState({ ...IDLE, status: "error", message: event.message });
+              captureSearchFailure("agent_error");
             } else if (event.type === "results") {
               setState({
                 status: "done",
@@ -163,8 +190,17 @@ export function SearchResults({ query }: { query: string }) {
                 captured.current = key;
                 captureEvent("search_performed", {
                   query,
-                  resultCount: event.resultCount,
-                  courseCount: event.courseCount,
+                  query_length: query.length,
+                  result_count: event.resultCount,
+                  course_count: event.courseCount,
+                  video_result_count: event.results.filter(
+                    (item) => item.kind === "video",
+                  ).length,
+                  lesson_result_count: event.results.filter(
+                    (item) => item.kind === "lesson",
+                  ).length,
+                  duration_ms: Date.now() - startedAt,
+                  has_results: event.resultCount > 0,
                 });
               }
             }
@@ -178,6 +214,7 @@ export function SearchResults({ query }: { query: string }) {
           status: "error",
           message: "Search is unavailable right now.",
         });
+        captureSearchFailure("network_error");
       }
     }
 
@@ -247,7 +284,13 @@ export function SearchResults({ query }: { query: string }) {
             value={sort}
             disabled={isLoading}
             onChange={(event) => {
-              if (isSortOption(event.target.value)) setSort(event.target.value);
+              if (!isSortOption(event.target.value)) return;
+              setSort(event.target.value);
+              captureEvent("search_results_sorted", {
+                query,
+                sort: event.target.value,
+                result_count: state.resultCount,
+              });
             }}
           >
             {SORT_OPTIONS.map((option) => (
@@ -264,15 +307,26 @@ export function SearchResults({ query }: { query: string }) {
         {isLoading &&
           [0, 1, 2].map((index) => <ResultSkeleton key={index} />)}
 
+        {/* Two result kinds in one ranked list (AGENTS.md §11): a video moment
+            and a lesson matched on its own topic. */}
         {!isLoading &&
-          sorted.map((result, index) => (
-            <LessonResultCard
-              key={result.lessonId}
-              result={result}
-              query={query}
-              rank={index + 1}
-            />
-          ))}
+          sorted.map((result, index) =>
+            result.kind === "video" ? (
+              <VideoResultCard
+                key={`video:${result.lessonId}:${result.startSeconds}`}
+                result={result}
+                query={query}
+                rank={index + 1}
+              />
+            ) : (
+              <LessonResultCard
+                key={`lesson:${result.lessonId}`}
+                result={result}
+                query={query}
+                rank={index + 1}
+              />
+            ),
+          )}
       </div>
 
       {/* Only after a search actually succeeded: under an error it would read

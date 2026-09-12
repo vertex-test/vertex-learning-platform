@@ -196,6 +196,8 @@ export const SEARCH_LESSONS_BY_IDS_QUERY = defineQuery(/* groq */ `
     summary,
     keyPoints,
     durationSeconds,
+    videoUrl,
+    poster {${imageFragment}},
     "course": *[_type == "course" && references(^._id)][0] {
       _id,
       title,
@@ -212,5 +214,26 @@ export const SEARCH_LESSONS_BY_IDS_QUERY = defineQuery(/* groq */ `
         }
       }
     }
+  }
+`)
+
+/**
+ * The moments a video is allowed to be matched at (AGENTS.md §7, §11).
+ *
+ * Chapters come back whole because their labels title the result card; chunks
+ * contribute their `startSeconds` and nothing else. No transcript text leaves
+ * Sanity here, and none of it is ever sent back to the model (AGENTS.md §12).
+ *
+ * Lessons link to a video by URL, not by reference (§8), which is why this is
+ * keyed on `url` rather than on an id.
+ */
+export const SEARCH_VIDEO_MOMENTS_QUERY = defineQuery(/* groq */ `
+  *[_type == "video" && url in $urls] {
+    url,
+    chapters[] {
+      startSeconds,
+      label
+    },
+    "chunkSeconds": chunks[].startSeconds
   }
 `)
