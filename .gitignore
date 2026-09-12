@@ -48,8 +48,9 @@ next-env.d.ts
 /studio/schema.json
 /studio/.sanity
 
-# generated import file from scripts/seed/prepare.mjs
+# generated import files from the studio's prepare scripts
 /studio/scripts/seed/.out
+/studio/scripts/context/.out
 
 # agent tooling
 /.gstack/

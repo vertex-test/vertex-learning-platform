@@ -5,7 +5,7 @@ import {client} from './client'
 /** GROQ parameter values Vertex actually passes. */
 export type SanityQueryParams = Record<
   string,
-  string | number | boolean | null
+  string | number | boolean | null | readonly string[]
 >
 
 type SanityFetchOptions<Q extends string> = {

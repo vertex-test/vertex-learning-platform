@@ -175,3 +175,42 @@ export const CATEGORIES_QUERY = defineQuery(/* groq */ `
     description
   }
 `)
+
+/**
+ * The search route's hydration query (AGENTS.md §7, §11).
+ *
+ * The search agent returns lesson ids and a ranking, nothing more — every field
+ * a learner reads on a result card is fetched here, from stored data. That is
+ * what makes "never invent a course, lesson, price, duration, or timestamp"
+ * structural rather than a rule the model is asked to keep.
+ *
+ * A lesson stores no parent course, so the course comes from a reverse
+ * reference. Its full module outline comes along because module and lesson
+ * numbers are derived from array order, never stored (AGENTS.md §8).
+ */
+export const SEARCH_LESSONS_BY_IDS_QUERY = defineQuery(/* groq */ `
+  *[_type == "lesson" && _id in $ids && defined(slug.current)] {
+    _id,
+    title,
+    "slug": slug.current,
+    summary,
+    keyPoints,
+    durationSeconds,
+    "course": *[_type == "course" && references(^._id)][0] {
+      _id,
+      title,
+      "slug": slug.current,
+      coverImage {${imageFragment}},
+      modules[] {
+        _key,
+        title,
+        "lessons": lessons[]->{
+          _id,
+          title,
+          "slug": slug.current,
+          durationSeconds
+        }
+      }
+    }
+  }
+`)

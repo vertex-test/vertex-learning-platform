@@ -11,7 +11,9 @@
     "deploy": "sanity deploy",
     "typegen": "sanity schemas extract && sanity typegen generate",
     "seed:prepare": "node scripts/seed/prepare.mjs",
-    "seed:import": "node scripts/seed/import.mjs"
+    "seed:import": "node scripts/seed/import.mjs",
+    "context:prepare": "node scripts/context/prepare.mjs",
+    "context:import": "node scripts/context/import.mjs"
   },
   "dependencies": {
     "@sanity/icons": "^5.2.2",
