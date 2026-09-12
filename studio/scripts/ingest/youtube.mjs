@@ -30,11 +30,19 @@ const NEXT_CONTEXT = {
 
 const USER_AGENT = 'com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip'
 
+/**
+ * These are unofficial endpoints reached over a courtesy-paced run of a hundred
+ * or more videos, so a connection that hangs must fail rather than stall the
+ * whole ingest. `fetch.mjs` treats the abort as retryable and backs off.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
+
 async function innertube(endpoint, context, videoId) {
   const response = await fetch(`${INNERTUBE}/${endpoint}`, {
     method: 'POST',
     headers: {'content-type': 'application/json', 'user-agent': USER_AGENT},
     body: JSON.stringify({context, videoId}),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
 
   if (!response.ok) throw new Error(`${endpoint} responded ${response.status}`)
@@ -140,7 +148,7 @@ export async function fetchYouTubeSource({id, url}) {
   const captionUrl = new URL(track.baseUrl)
   captionUrl.searchParams.set('fmt', 'json3')
 
-  const captions = await fetch(captionUrl)
+  const captions = await fetch(captionUrl, {signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)})
   if (!captions.ok) throw new Error(`captions responded ${captions.status}`)
 
   const cues = cuesFromJson3(await captions.json())

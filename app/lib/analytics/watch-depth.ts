@@ -25,8 +25,6 @@ export type WatchDepthContext = {
   courseSlug: string | null;
   provider: string | null;
   durationSeconds: number | null;
-  /** Where the embed started, so a deep link is not counted as unwatched. */
-  startSeconds: number;
 };
 
 /**
@@ -40,8 +38,7 @@ export type WatchDepthContext = {
  * read or written during render.
  */
 export function useWatchDepth(playing: boolean, context: WatchDepthContext) {
-  const { lessonSlug, courseSlug, provider, durationSeconds, startSeconds } =
-    context;
+  const { lessonSlug, courseSlug, provider, durationSeconds } = context;
 
   useEffect(() => {
     // Without a duration there is no denominator, so there is no honest
@@ -49,7 +46,13 @@ export function useWatchDepth(playing: boolean, context: WatchDepthContext) {
     if (!playing || !durationSeconds || durationSeconds <= 0) return;
 
     const sent = new Set<number>();
-    let watchedSeconds = Math.min(startSeconds, durationSeconds);
+    /**
+     * Depth is what was *watched*, so it starts at nothing even when the embed
+     * was deep-linked into the middle of the video. Seeding it with the start
+     * second would report a learner who arrived at 95% and watched one second
+     * as having watched the whole lesson.
+     */
+    let watchedSeconds = 0;
 
     const interval = window.setInterval(() => {
       // A hidden tab is not playback the learner is watching. This is the one
@@ -94,12 +97,5 @@ export function useWatchDepth(playing: boolean, context: WatchDepthContext) {
     }, TICK_MS);
 
     return () => window.clearInterval(interval);
-  }, [
-    playing,
-    lessonSlug,
-    courseSlug,
-    provider,
-    durationSeconds,
-    startSeconds,
-  ]);
+  }, [playing, lessonSlug, courseSlug, provider, durationSeconds]);
 }

@@ -97,6 +97,13 @@ export function identifyVideo(videoUrl) {
 }
 
 /**
+ * A video's identity is `{provider, id}`, never the id alone — that is what
+ * `videoDocumentId` keys a document on, and two providers can mint the same id
+ * string. Every map across the pipeline is keyed with this so the stages agree.
+ */
+export const videoKey = ({provider, id}) => `${provider}:${id}`
+
+/**
  * `video-<provider>-<id>`, with anything the datastore rejects in an id replaced
  * (AGENTS.md §9). A short hash of the raw id is appended whenever replacing
  * changed something, so two different source ids can never collapse onto one

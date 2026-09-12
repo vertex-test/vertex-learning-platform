@@ -236,7 +236,6 @@ export async function hydrateResults(
 
       if (moment && taken < MAX_MOMENTS_PER_LESSON) {
         result = toVideoResult(lesson, moment);
-        if (result) momentsPerLesson.set(match.lessonId, taken + 1);
       } else {
         // The data holds no such moment (or this lesson has contributed
         // enough): the match is still a real lesson, so it degrades to a
@@ -254,6 +253,15 @@ export async function hydrateResults(
         ? `video:${result.lessonId}:${result.startSeconds}`
         : `lesson:${result.lessonId}`;
     if (seen.has(key)) continue;
+
+    // Counted here rather than above, so a moment the agent reported twice
+    // costs the lesson nothing and a later, distinct moment still fits.
+    if (result.kind === "video") {
+      momentsPerLesson.set(
+        result.lessonId,
+        (momentsPerLesson.get(result.lessonId) ?? 0) + 1,
+      );
+    }
 
     seen.add(key);
     results.push(result);

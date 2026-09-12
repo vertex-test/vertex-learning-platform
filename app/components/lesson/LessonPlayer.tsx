@@ -83,7 +83,6 @@ function PlayerSurface({
     courseSlug,
     provider: embed?.provider ?? null,
     durationSeconds,
-    startSeconds,
   });
 
   /**

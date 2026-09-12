@@ -23,21 +23,32 @@ export const POSTHOG_SESSION_ID_HEADER = "x-posthog-session-id";
 let client: PostHog | null = null;
 
 /**
+ * Analytics must never hold a learner's response open. The flush below is
+ * bounded by this, and the client is given the same ceiling per request.
+ */
+const FLUSH_TIMEOUT_MS = 2_000;
+
+let warnedAboutConfig = false;
+
+/**
  * The singleton, or `null` when PostHog is not configured.
  *
  * A missing configuration is never allowed to break the route, but it is not
- * allowed to be silent either: development throws so the gap is noticed, and
- * production degrades to a no-op.
+ * allowed to be silent either: development warns once so the gap is noticed —
+ * it cannot throw, because callers `await` this on the response path and an
+ * unconfigured dev machine would lose the response rather than the event.
  */
 function posthogServer(): PostHog | null {
   if (!projectToken || !host) {
-    if (process.env.NODE_ENV === "development") {
+    if (process.env.NODE_ENV === "development" && !warnedAboutConfig) {
+      warnedAboutConfig = true;
+
       const missingVariable = !projectToken
         ? "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN"
         : "NEXT_PUBLIC_POSTHOG_HOST";
 
-      throw new Error(
-        `${missingVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingVariable} is configured`,
+      console.warn(
+        `[posthog] ${missingVariable} is missing, so server events are silently dropped. This warning stops once ${missingVariable} is configured.`,
       );
     }
 
@@ -52,11 +63,36 @@ function posthogServer(): PostHog | null {
       host,
       flushAt: 1,
       flushInterval: 0,
+      requestTimeout: FLUSH_TIMEOUT_MS,
       enableExceptionAutocapture: true,
     });
   }
 
   return client;
+}
+
+/**
+ * Waits for the event to leave the process, but only for so long.
+ *
+ * `requestTimeout` bounds one HTTP attempt; this bounds the whole flush, so a
+ * retrying or wedged ingestion endpoint cannot delay the learner's response.
+ */
+async function flushBounded(posthog: PostHog): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const deadline = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, FLUSH_TIMEOUT_MS);
+    // Never hold the runtime open for analytics.
+    timer.unref?.();
+  });
+
+  try {
+    await Promise.race([posthog.flush(), deadline]);
+  } catch {
+    // Analytics must never take the response down with it.
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -116,11 +152,7 @@ export async function captureServerEvent(
     },
   });
 
-  try {
-    await posthog.flush();
-  } catch {
-    // Analytics must never take the response down with it.
-  }
+  await flushBounded(posthog);
 }
 
 /** Reports a server-side failure to PostHog's error tracking. */
@@ -141,9 +173,5 @@ export async function captureServerException(
     },
   );
 
-  try {
-    await posthog.flush();
-  } catch {
-    // As above.
-  }
+  await flushBounded(posthog);
 }

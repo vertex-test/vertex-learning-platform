@@ -13,7 +13,7 @@ import {dirname, join, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 import {chunkCues, cleanChapters, MAX_CHUNK_CHARS} from './chunk.mjs'
-import {identifyVideo, videoDocumentId} from './providers.mjs'
+import {identifyVideo, videoDocumentId, videoKey} from './providers.mjs'
 
 const ingestDir = dirname(fileURLToPath(import.meta.url))
 const sourcesFile = join(ingestDir, 'sources', 'transcripts.ndjson')
@@ -99,11 +99,11 @@ for (const source of sources) {
 // The lessons are the reason these documents exist: a lesson whose video was
 // never ingested would silently have no searchable moments, so stop instead.
 const lessons = readNdjson(seedFile).filter((doc) => doc._type === 'lesson')
-const ingested = new Set(sources.map((source) => source.id))
+const ingested = new Set(sources.map((source) => videoKey(source)))
 const missing = lessons
   .filter((lesson) => {
     const identified = identifyVideo(lesson.videoUrl)
-    return !identified || !ingested.has(identified.id)
+    return !identified || !ingested.has(videoKey(identified))
   })
   .map((lesson) => lesson.slug?.current ?? lesson._id)
 
