@@ -16,9 +16,11 @@ import { ProgressBar } from "../ui/ProgressBar";
 export function CourseProgressBar({
   percent,
   continueHref,
+  courseSlug,
 }: {
   percent: number;
   continueHref: string | null;
+  courseSlug: string | null;
 }) {
   const started = percent > 0;
 
@@ -43,8 +45,12 @@ export function CourseProgressBar({
             size="xl"
             onClick={() =>
               captureEvent("learning_started", {
+                course_slug: courseSlug,
                 lesson_path: continueHref,
                 current_percent: percent,
+                // `started` is what the label says; once progress is stored
+                // this becomes a real resume rather than a first visit.
+                resumed: started,
               })
             }
             icon={<ArrowRight className="h-5 w-5" strokeWidth={2} />}

@@ -29,6 +29,7 @@ import {
   type ContentModule,
 } from "@/app/components/course/CourseContent";
 import { CourseProgressBar } from "@/app/components/course/CourseProgressBar";
+import { ViewTracker } from "@/app/components/ui/ViewTracker";
 import { Badge } from "@/app/components/ui/Badge";
 import { Breadcrumbs } from "@/app/components/ui/Breadcrumbs";
 import { Button, ButtonLink } from "@/app/components/ui/Button";
@@ -108,6 +109,21 @@ export default async function CoursePage(props: PageProps<"/courses/[slug]">) {
       <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col bg-canvas sm:border-x sm:border-neutral-200">
         <SiteHeader activeHref="/courses" />
 
+        {/* Counts and level are derived or stored content, never PII. */}
+        <ViewTracker
+          eventName="course_viewed"
+          properties={{
+            course_slug: slug,
+            level: course.level ?? null,
+            module_count: moduleCount,
+            lesson_count: outline.modules.reduce(
+              (total, module) => total + module.lessons.length,
+              0,
+            ),
+            is_popular: Boolean(course.popular),
+          }}
+        />
+
         <main className="flex-1 px-6 pt-8 pb-12 md:px-12">
           <Breadcrumbs
             items={[
@@ -168,6 +184,7 @@ export default async function CoursePage(props: PageProps<"/courses/[slug]">) {
         </main>
 
         <CourseProgressBar
+          courseSlug={slug}
           /* Zero until learner progress (AGENTS.md §7) has a document type and
              a server write route. Showing a made-up percentage would be
              fabricated data on an otherwise fully grounded page. */

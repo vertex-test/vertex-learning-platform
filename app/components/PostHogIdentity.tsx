@@ -22,10 +22,10 @@ export function PostHogIdentity() {
         posthog.reset();
       }
 
-      posthog.identify(user.id, {
-        email: user.primaryEmailAddress?.emailAddress,
-        name: user.fullName ?? undefined,
-      });
+      // The Clerk user id and nothing else: no email, no name, no other
+      // personally identifiable property reaches PostHog, on the person record
+      // or on any event.
+      posthog.identify(user.id);
       identifiedUserId.current = user.id;
       return;
     }

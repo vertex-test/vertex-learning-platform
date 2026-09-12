@@ -173,6 +173,7 @@ export default async function LessonPage(props: PageProps<"/lessons/[slug]">) {
             course_slug: course?.slug ?? null,
             module_number: placement?.module.moduleNumber ?? null,
             free_preview: Boolean(lesson.freePreview),
+            duration_seconds: lesson.durationSeconds ?? null,
           }}
         />
 
@@ -228,6 +229,7 @@ export default async function LessonPage(props: PageProps<"/lessons/[slug]">) {
                 title={lesson.title ?? "Lesson"}
                 durationSeconds={lesson.durationSeconds ?? null}
                 lessonSlug={slug}
+                courseSlug={course?.slug ?? null}
               />
             </div>
 

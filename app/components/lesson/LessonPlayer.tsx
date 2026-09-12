@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import { Play } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { useWatchDepth } from "@/app/lib/analytics/watch-depth";
 import { captureEvent } from "@/app/lib/posthog-client";
 import { formatTimestamp } from "@/sanity/lib/derive";
 import { parseStartSeconds, videoEmbed } from "@/sanity/lib/video";
@@ -29,8 +30,10 @@ export interface LessonPlayerProps {
   posterLqip: string | null;
   title: string;
   durationSeconds: number | null;
-  /** For the analytics event only. */
+  /** For the analytics events only. */
   lessonSlug: string | null;
+  /** For the analytics events only. */
+  courseSlug: string | null;
 }
 
 export function LessonPlayer(props: LessonPlayerProps) {
@@ -61,7 +64,9 @@ function PlayerSurface({
   posterAlt,
   posterLqip,
   title,
+  durationSeconds,
   lessonSlug,
+  courseSlug,
   startSeconds,
 }: LessonPlayerProps & { startSeconds: number }) {
   const [playing, setPlaying] = useState(false);
@@ -70,6 +75,46 @@ function PlayerSurface({
     startSeconds,
     title: `${title} — lesson video`,
   });
+
+  // Watch depth, as an elapsed-time estimate — see the hook for what that can
+  // and cannot see (AGENTS.md §7).
+  useWatchDepth(playing, {
+    lessonSlug,
+    courseSlug,
+    provider: embed?.provider ?? null,
+    durationSeconds,
+  });
+
+  /**
+   * The one real resume affordance the product has today: arriving at a lesson
+   * already positioned at a second, which is what a video search result links
+   * to. Learner progress has no document type or write route yet (§7), so there
+   * is no stored resume position to report alongside it.
+   *
+   * Fired on arrival rather than in a handler because the resume *is* the page
+   * load — there is no click of our own to hang it on.
+   */
+  const resumeCaptured = useRef<string | null>(null);
+  const resumeKey = `${lessonSlug}:${startSeconds}`;
+
+  useEffect(() => {
+    if (startSeconds <= 0) return;
+    if (resumeCaptured.current === resumeKey) return;
+    resumeCaptured.current = resumeKey;
+
+    captureEvent("lesson_resume_used", {
+      lesson_slug: lessonSlug,
+      course_slug: courseSlug,
+      start_seconds: startSeconds,
+      percent_into_lesson:
+        durationSeconds && durationSeconds > 0
+          ? Math.round((startSeconds / durationSeconds) * 100)
+          : null,
+      source: "deep_link",
+    });
+    // `resumeKey` already encodes the lesson and the second.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeKey]);
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-neutral-900 shadow-md">
@@ -111,8 +156,11 @@ function PlayerSurface({
                 setPlaying(true);
                 captureEvent("lesson_video_played", {
                   lesson_slug: lessonSlug,
+                  course_slug: courseSlug,
                   provider: embed.provider,
                   start_seconds: startSeconds,
+                  duration_seconds: durationSeconds,
+                  resumed: startSeconds > 0,
                 });
               }}
               className="group absolute inset-0 flex items-center justify-center bg-neutral-900/25 outline-none transition-colors hover:bg-neutral-900/10 focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset"

@@ -26,8 +26,20 @@ export const agentMatchSchema = z.object({
   lessonId: z
     .string()
     .describe("The lesson document's _id, exactly as returned by GROQ."),
+  kind: z
+    .enum(["lesson", "video"])
+    .describe(
+      'Use "video" when a specific moment inside the video matched, and "lesson" when the lesson matched on its own topic.',
+    ),
+  startSeconds: z
+    .number()
+    .int()
+    .min(0)
+    .describe(
+      "For a video match, the startSeconds of the matched chapter or transcript chunk, copied exactly from the data. Use 0 for a lesson match.",
+    ),
   matchedOn: z
-    .enum(["title", "keyPoints", "notes", "course"])
+    .enum(["title", "keyPoints", "notes", "course", "chapter", "transcript"])
     .describe("Where the match was found. Drives nothing but ranking review."),
 });
 
@@ -35,7 +47,7 @@ export const agentResultsSchema = z.object({
   matches: z
     .array(agentMatchSchema)
     .describe(
-      "Every relevant lesson, best match first. Do not cap this to a handful.",
+      "Every relevant match, best first: lessons and video moments in one ranked list. Do not cap this to a handful.",
     ),
   reply: z
     .string()
@@ -47,14 +59,12 @@ export const agentResultsSchema = z.object({
 
 export type AgentResults = z.infer<typeof agentResultsSchema>;
 
-/** A lesson result card, built entirely from stored Sanity fields. */
-export type LessonSearchResult = {
-  kind: "lesson";
+/** Fields every result card shows, all of them stored Sanity content. */
+type ResultBase = {
   lessonId: string;
   slug: string;
   title: string;
   summary: string | null;
-  keyPoints: string[];
   durationSeconds: number | null;
   courseTitle: string | null;
   courseSlug: string | null;
@@ -67,7 +77,31 @@ export type LessonSearchResult = {
   lessonLabel: string | null;
 };
 
-export type SearchResult = LessonSearchResult;
+/** A lesson result card, built entirely from stored Sanity fields. */
+export type LessonSearchResult = ResultBase & {
+  kind: "lesson";
+  keyPoints: string[];
+};
+
+/**
+ * A video moment: a lesson's video matched at one second (AGENTS.md §11).
+ *
+ * `startSeconds` is never the model's own number — hydration only keeps a
+ * second that exists in the `video` document, so a card can never point at an
+ * invented moment. `title` is the matched chapter's label when the match came
+ * from the table of contents, and the lesson's title when it came from the
+ * transcript (§7).
+ */
+export type VideoSearchResult = ResultBase & {
+  kind: "video";
+  startSeconds: number;
+  matchedFrom: "chapter" | "transcript";
+  posterAssetId: string | null;
+  posterAlt: string | null;
+  posterLqip: string | null;
+};
+
+export type SearchResult = LessonSearchResult | VideoSearchResult;
 
 /** The sort control on the results page. Re-sorts in place; never refetches. */
 export const SORT_OPTIONS = [

@@ -53,6 +53,18 @@ export type BlockContent = Array<
     }
 >;
 
+export type VideoChunk = {
+  _type: "videoChunk";
+  startSeconds?: number;
+  text?: string;
+};
+
+export type VideoChapter = {
+  _type: "videoChapter";
+  startSeconds?: number;
+  label?: string;
+};
+
 export type LessonResource = {
   _type: "lessonResource";
   type?: "documentation" | "article" | "code" | "download" | "video" | "link";
@@ -96,6 +108,28 @@ export type CourseModule = {
     {
       _key: string;
     } & LessonReference
+  >;
+};
+
+export type Video = {
+  _id: string;
+  _type: "video";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  id?: string;
+  url?: string;
+  provider?: "youtube" | "vimeo" | "bunny";
+  title?: string;
+  chapters?: Array<
+    {
+      _key: string;
+    } & VideoChapter
+  >;
+  chunks?: Array<
+    {
+      _key: string;
+    } & VideoChunk
   >;
 };
 
@@ -332,10 +366,13 @@ export type Geopoint = {
 export type AllSanitySchemaTypes =
   | SanityImageAssetReference
   | BlockContent
+  | VideoChunk
+  | VideoChapter
   | LessonResource
   | LearningOutcome
   | LessonReference
   | CourseModule
+  | Video
   | Lesson
   | SanityImageCrop
   | SanityImageHotspot
@@ -634,7 +671,7 @@ export type CATEGORIES_QUERY_RESULT = Array<{
 
 // Source: ../sanity/lib/queries.ts
 // Variable: SEARCH_LESSONS_BY_IDS_QUERY
-// Query: *[_type == "lesson" && _id in $ids && defined(slug.current)] {    _id,    title,    "slug": slug.current,    summary,    keyPoints,    durationSeconds,    "course": *[_type == "course" && references(^._id)][0] {      _id,      title,      "slug": slug.current,      coverImage {  "alt": alt,  asset->{    _id,    url,    metadata {lqip, dimensions}  }},      modules[] {        _key,        title,        "lessons": lessons[]->{          _id,          title,          "slug": slug.current,          durationSeconds        }      }    }  }
+// Query: *[_type == "lesson" && _id in $ids && defined(slug.current)] {    _id,    title,    "slug": slug.current,    summary,    keyPoints,    durationSeconds,    videoUrl,    poster {  "alt": alt,  asset->{    _id,    url,    metadata {lqip, dimensions}  }},    "course": *[_type == "course" && references(^._id)][0] {      _id,      title,      "slug": slug.current,      coverImage {  "alt": alt,  asset->{    _id,    url,    metadata {lqip, dimensions}  }},      modules[] {        _key,        title,        "lessons": lessons[]->{          _id,          title,          "slug": slug.current,          durationSeconds        }      }    }  }
 export type SEARCH_LESSONS_BY_IDS_QUERY_RESULT = Array<{
   _id: string;
   title: string | null;
@@ -642,6 +679,18 @@ export type SEARCH_LESSONS_BY_IDS_QUERY_RESULT = Array<{
   summary: string | null;
   keyPoints: Array<string> | null;
   durationSeconds: number | null;
+  videoUrl: string | null;
+  poster: {
+    alt: string | null;
+    asset: {
+      _id: string;
+      url: string | null;
+      metadata: {
+        lqip: string | null;
+        dimensions: SanityImageDimensions | null;
+      } | null;
+    } | null;
+  } | null;
   course: {
     _id: string;
     title: string | null;
@@ -670,6 +719,18 @@ export type SEARCH_LESSONS_BY_IDS_QUERY_RESULT = Array<{
   } | null;
 }>;
 
+// Source: ../sanity/lib/queries.ts
+// Variable: SEARCH_VIDEO_MOMENTS_QUERY
+// Query: *[_type == "video" && url in $urls] {    url,    chapters[] {      startSeconds,      label    },    "chunkSeconds": chunks[].startSeconds  }
+export type SEARCH_VIDEO_MOMENTS_QUERY_RESULT = Array<{
+  url: string | null;
+  chapters: Array<{
+    startSeconds: number | null;
+    label: string | null;
+  }> | null;
+  chunkSeconds: Array<number | null> | null;
+}>;
+
 // Query TypeMap
 import "@sanity/client";
 declare module "@sanity/client" {
@@ -683,6 +744,7 @@ declare module "@sanity/client" {
     '\n  *[_type == "instructor" && defined(slug.current)].slug.current\n': INSTRUCTOR_SLUGS_QUERY_RESULT;
     '\n  *[_type == "instructor" && slug.current == $slug][0] {\n    _id,\n    name,\n    "slug": slug.current,\n    expertise,\n    bio,\n    photo {\n  "alt": alt,\n  asset->{\n    _id,\n    url,\n    metadata {lqip, dimensions}\n  }\n},\n    "courses": *[_type == "course" && instructor._ref == ^._id]\n      | order(popular desc, title asc) {\n        \n  _id,\n  title,\n  "slug": slug.current,\n  summary,\n  level,\n  price,\n  popular,\n  studentCount,\n  coverImage {\n  "alt": alt,\n  asset->{\n    _id,\n    url,\n    metadata {lqip, dimensions}\n  }\n},\n  "categoryTitle": category->title,\n  "instructorName": instructor->name,\n  "moduleCount": count(modules),\n  "lessonCount": count(modules[].lessons[]),\n  "totalDurationSeconds": math::sum(modules[].lessons[]->durationSeconds)\n\n      }\n  }\n': INSTRUCTOR_BY_SLUG_QUERY_RESULT;
     '\n  *[_type == "category" && defined(slug.current)] | order(title asc) {\n    _id,\n    title,\n    "slug": slug.current,\n    description\n  }\n': CATEGORIES_QUERY_RESULT;
-    '\n  *[_type == "lesson" && _id in $ids && defined(slug.current)] {\n    _id,\n    title,\n    "slug": slug.current,\n    summary,\n    keyPoints,\n    durationSeconds,\n    "course": *[_type == "course" && references(^._id)][0] {\n      _id,\n      title,\n      "slug": slug.current,\n      coverImage {\n  "alt": alt,\n  asset->{\n    _id,\n    url,\n    metadata {lqip, dimensions}\n  }\n},\n      modules[] {\n        _key,\n        title,\n        "lessons": lessons[]->{\n          _id,\n          title,\n          "slug": slug.current,\n          durationSeconds\n        }\n      }\n    }\n  }\n': SEARCH_LESSONS_BY_IDS_QUERY_RESULT;
+    '\n  *[_type == "lesson" && _id in $ids && defined(slug.current)] {\n    _id,\n    title,\n    "slug": slug.current,\n    summary,\n    keyPoints,\n    durationSeconds,\n    videoUrl,\n    poster {\n  "alt": alt,\n  asset->{\n    _id,\n    url,\n    metadata {lqip, dimensions}\n  }\n},\n    "course": *[_type == "course" && references(^._id)][0] {\n      _id,\n      title,\n      "slug": slug.current,\n      coverImage {\n  "alt": alt,\n  asset->{\n    _id,\n    url,\n    metadata {lqip, dimensions}\n  }\n},\n      modules[] {\n        _key,\n        title,\n        "lessons": lessons[]->{\n          _id,\n          title,\n          "slug": slug.current,\n          durationSeconds\n        }\n      }\n    }\n  }\n': SEARCH_LESSONS_BY_IDS_QUERY_RESULT;
+    '\n  *[_type == "video" && url in $urls] {\n    url,\n    chapters[] {\n      startSeconds,\n      label\n    },\n    "chunkSeconds": chunks[].startSeconds\n  }\n': SEARCH_VIDEO_MOMENTS_QUERY_RESULT;
   }
 }

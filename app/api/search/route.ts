@@ -5,6 +5,11 @@ import { generateText, stepCountIs, tool } from "ai";
 import { countCourses, hydrateResults } from "@/app/lib/search/hydrate";
 import { createSearchMCPClient, fetchInitialContext } from "@/app/lib/search/mcp";
 import { buildSearchSystemPrompt } from "@/app/lib/search/prompt";
+import {
+  captureServerEvent,
+  captureServerException,
+  distinctIdFor,
+} from "@/app/lib/posthog-server";
 import { checkRateLimit, clientKey } from "@/app/lib/search/ratelimit";
 import {
   agentResultsSchema,
@@ -43,7 +48,7 @@ const SEARCH_TIMEOUT_MS = 60_000;
  */
 const returnResults = tool({
   description:
-    "Report the lessons that match the learner's query. Call this exactly once, as your final action.",
+    "Report the lessons and video moments that match the learner's query. Call this exactly once, as your final action.",
   inputSchema: agentResultsSchema,
 });
 
@@ -74,9 +79,29 @@ function agentAnswer(
   return null;
 }
 
+/** Counts each result kind, so the two halves of §11 can be compared. */
+function resultKindCounts(results: { kind: string }[]) {
+  return {
+    video_result_count: results.filter((r) => r.kind === "video").length,
+    lesson_result_count: results.filter((r) => r.kind === "lesson").length,
+  };
+}
+
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  // The person this request belongs to: the Clerk user id when signed in,
+  // otherwise the browser's own anonymous distinct id.
+  const identity = await distinctIdFor(request);
+
   const limit = checkRateLimit(clientKey(request));
   if (!limit.allowed) {
+    // Worth its own event: a learner hitting the ceiling is a real UX failure,
+    // and a spike here is the cost guard doing its job.
+    await captureServerEvent(identity, "search_rate_limited", {
+      retry_after_seconds: limit.retryAfter,
+      signed_in: identity.signedIn,
+    });
+
     return errorResponse("Too many searches. Try again in a moment.", 429, {
       "Retry-After": String(limit.retryAfter),
     });
@@ -95,6 +120,26 @@ export async function POST(request: Request) {
   }
 
   const { query } = parsed.data;
+  const model = process.env.SEARCH_MODEL || DEFAULT_MODEL;
+
+  /**
+   * The server-side record of one search (AGENTS.md §7). Captured here rather
+   * than in the browser because this is where the agent actually runs, so it
+   * sees the outcome even when the learner navigates away mid-stream.
+   */
+  const captureSearch = (
+    status: string,
+    extra: Record<string, unknown> = {},
+  ) =>
+    captureServerEvent(identity, "search_executed", {
+      query,
+      query_length: query.length,
+      duration_ms: Date.now() - startedAt,
+      model,
+      status,
+      signed_in: identity.signedIn,
+      ...extra,
+    });
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return errorResponse(
@@ -150,7 +195,7 @@ export async function POST(request: Request) {
         );
 
         const result = await generateText({
-          model: google(process.env.SEARCH_MODEL || DEFAULT_MODEL),
+          model: google(model),
           system: buildSearchSystemPrompt(initialContext),
           prompt: `Find every lesson that teaches: ${query}`,
           tools: { ...mcpTools, return_results: returnResults },
@@ -182,6 +227,14 @@ export async function POST(request: Request) {
             text: result.text.slice(0, 500),
           });
 
+          await captureSearch("no_answer", {
+            step_count: result.steps.length,
+            result_count: 0,
+            course_count: 0,
+            video_result_count: 0,
+            lesson_result_count: 0,
+          });
+
           send({
             type: "error",
             message: "Search could not complete. Try a different query.",
@@ -192,20 +245,35 @@ export async function POST(request: Request) {
         // Everything the learner reads is looked up here, from stored data.
         const results = await hydrateResults(answer);
 
+        const courseCount = countCourses(results);
+
         send({
           type: "results",
           query,
           results,
           resultCount: results.length,
-          courseCount: countCourses(results),
+          courseCount,
           reply: answer.reply || null,
+        });
+
+        await captureSearch(results.length > 0 ? "ok" : "no_results", {
+          step_count: result.steps.length,
+          result_count: results.length,
+          course_count: courseCount,
+          ...resultKindCounts(results),
         });
       } catch (error) {
         // An abort is the learner leaving or the deadline passing, not a fault.
         if (abort.aborted) {
           console.warn("[search] aborted:", abort.reason?.name ?? "aborted");
+          await captureSearch("aborted");
         } else {
           console.error("[search]", error);
+          await captureServerException(identity, error, {
+            query_length: query.length,
+            model,
+          });
+          await captureSearch("error");
           send({ type: "error", message: "Search is unavailable right now." });
         }
       } finally {

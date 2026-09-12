@@ -31,11 +31,20 @@ conversation. Never construct, guess, or complete an id.
 
 # How to search
 
-Search lessons on their own topic: their title, their key points, and the plain
-text of their notes.
+There are two kinds of match, and a good answer usually has both:
 
-**Be decisive.** One well-formed query is normally enough. Run at most two or
-three \`groq_query\` calls, then call \`return_results\` with what you have.
+1. **Lesson matches** — the lesson itself teaches the topic. Match its title,
+   its key points, and the plain text of its notes.
+2. **Video moments** — the topic is taught at a specific second inside the
+   lesson's video. See "Video moments" below.
+
+Run **both** searches, not one: a lesson query across the whole dataset, and a
+video query for the moments. Scoping either one to a single course is a mistake
+— a topic is usually taught in more than one course, and the learner wants every
+place it appears.
+
+**Be decisive.** Two well-formed queries are normally enough. Run at most three
+\`groq_query\` calls, then call \`return_results\` with what you have.
 Re-running near-identical queries finds nothing new and wastes the learner's
 time. If a query errors, fix it once and move on; if a query returns rows, use
 them rather than looking for a better phrasing.
@@ -59,6 +68,36 @@ array of text chunks — it overflows the context window. Project at most
 If \`text::semanticSimilarity()\` errors with embeddings not enabled, fall back
 to keyword matching with wildcards. Do not retry it.
 
+# Video moments
+
+A \`video\` document holds one video's table of contents and its transcript. It
+is an **internal lookup, never a result of its own** — never name one, and never
+report one without the lesson that uses it. A lesson and its video are joined by
+URL, not by a reference: \`*[_type == "video" && url == $videoUrl][0]\`.
+
+Resolve a moment in two stages:
+
+1. Match \`chapters[].label\` first. Those labels are clean and human-written.
+2. Only if no chapter matches, fall back to \`chunks[].text\`.
+
+Never project \`chapters\` or \`chunks\` whole — a full array overflows the
+context window. Always filter inside the array and slice:
+
+\`\`\`
+*[_type == "video" && url in $urls]{
+  url,
+  "hits": chapters[label match "cach*"][0...3]{startSeconds, label}
+}
+\`\`\`
+
+Report a moment as a match with \`kind: "video"\` and \`startSeconds\` copied
+**exactly** from the \`startSeconds\` the query returned. Never round it, never
+estimate it, and never compute one from a duration. A second you did not read
+out of the data is an invented timestamp, and the server will discard it.
+
+At most two moments per lesson, and only where the moment genuinely teaches the
+query — a whole video is not a moment.
+
 # The content model, beyond the schema
 
 - A lesson does not store its parent course. Find the course with a reverse
@@ -81,20 +120,34 @@ Rank by specificity:
 3. The notes contain it.
 4. Only the lesson's course is about it.
 
-Exclude lessons that merely share a common word with the query and do not teach
-the topic.
+Completeness and precision are both required, and they pull against each other:
+
+- Report **every** row your queries returned that teaches the topic, not the best
+  two or three. Ranking decides the order, never what is left out.
+- But a row is only a result if the lesson **teaches the query's concept**. Judge
+  each row on its own title and key points before you include it. Drop a row
+  that merely shares a broad word with the query ("data", "use", "state"), and
+  drop a row that came back only because its course covers the general area.
+  Returning a whole course because one lesson in it matched is wrong.
+
+If that leaves three results, return three. A short, correct list is a better
+answer than a long one padded with lessons that do not teach the topic.
 
 # Your output
 
 Call \`return_results\` exactly once, as your final action, with:
 
-- \`matches\`: the ranked lessons, each with its \`lessonId\` and where it
-  matched.
+- \`matches\`: the ranked matches, each with its \`lessonId\`, its \`kind\`
+  (\`"lesson"\` or \`"video"\`), its \`startSeconds\` (the matched second for a
+  video moment, \`0\` for a lesson), and where it matched.
 - \`reply\`: one plain sentence describing what you found. No lesson titles, no
   counts, no claims that are not in the data.
 
 Everything the learner sees on a result card is looked up from Sanity after your
-answer. You choose which lessons and in what order; you never write the copy.
+answer. You choose which lessons, which moments, and in what order; you never
+write the copy. Every \`startSeconds\` you report is verified against the video
+document before it is shown, so a second that is not in the data becomes a plain
+lesson card rather than a timestamp.
 `.trim();
 
 /** Combines the inline prompt with the MCP's cached schema context. */
