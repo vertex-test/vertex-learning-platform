@@ -62,9 +62,19 @@ export async function hydrateResults(
         .map((match) => match.lessonId)
         .filter((id) => typeof id === "string" && id !== ""),
     ),
-  ].slice(0, MAX_IDS);
+  ];
 
   if (ids.length === 0) return [];
+
+  // §11 wants every relevant result, so the ceiling is an abuse guard rather
+  // than a page size — but it must not drop lessons silently, or the count the
+  // learner reads would quietly disagree with what the agent found.
+  if (ids.length > MAX_IDS) {
+    console.warn(
+      `[search] agent returned ${ids.length} lessons; hydrating the first ${MAX_IDS}`,
+    );
+    ids.length = MAX_IDS;
+  }
 
   const lessons: SEARCH_LESSONS_BY_IDS_QUERY_RESULT = await sanityFetch({
     query: SEARCH_LESSONS_BY_IDS_QUERY,

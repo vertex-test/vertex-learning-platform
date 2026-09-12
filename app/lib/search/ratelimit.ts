@@ -46,6 +46,15 @@ export function checkRateLimit(key: string): RateLimitResult {
     for (const [entryKey, times] of hits) {
       if (times.every((time) => now - time >= WINDOW_MS)) hits.delete(entryKey);
     }
+
+    // Dropping expired entries is not enough on its own: a spray of unique
+    // addresses inside one window leaves every entry fresh, and the map would
+    // grow without bound. Map iterates in insertion order, so the entries that
+    // go are the ones tracked longest ago.
+    for (const entryKey of hits.keys()) {
+      if (hits.size <= MAX_TRACKED) break;
+      if (entryKey !== key) hits.delete(entryKey);
+    }
   }
 
   return { allowed: true, retryAfter: 0 };

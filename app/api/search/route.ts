@@ -30,6 +30,11 @@ const MAX_STEPS = 6;
  */
 const QUERY_STEPS = 3;
 const DEFAULT_MODEL = "gemini-flash-lite-latest";
+/**
+ * A search that has not finished by now never will usefully. It also bounds
+ * the cost of a wedged model call, since every step is a billable request.
+ */
+const SEARCH_TIMEOUT_MS = 60_000;
 
 /**
  * The agent's answer arrives as a typed tool call rather than as prose: there
@@ -104,16 +109,35 @@ export async function POST(request: Request) {
     );
   }
 
+  /**
+   * One signal for the whole operation: the learner navigating away and the
+   * deadline both have to stop the model call, or an abandoned search keeps
+   * spending requests on a page nobody is looking at.
+   */
+  const abort = AbortSignal.any([
+    request.signal,
+    AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+  ]);
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let mcpClient: MCPClient | null = null;
 
+      /** After the learner disconnects the controller rejects writes. */
+      const send = (event: SearchStreamEvent) => {
+        try {
+          controller.enqueue(ndjson(event));
+        } catch {
+          // The stream is already gone; nothing left to report to.
+        }
+      };
+
       try {
-        controller.enqueue(ndjson({ type: "status", message: "Searching courses…" }));
+        send({ type: "status", message: "Searching courses…" });
 
         const [client, initialContext] = await Promise.all([
           createSearchMCPClient(),
-          fetchInitialContext(),
+          fetchInitialContext(abort),
         ]);
         mcpClient = client;
 
@@ -131,6 +155,7 @@ export async function POST(request: Request) {
           prompt: `Find every lesson that teaches: ${query}`,
           tools: { ...mcpTools, return_results: returnResults },
           stopWhen: stepCountIs(MAX_STEPS),
+          abortSignal: abort,
           prepareStep: ({ stepNumber }) =>
             stepNumber >= QUERY_STEPS
               ? {
@@ -157,36 +182,39 @@ export async function POST(request: Request) {
             text: result.text.slice(0, 500),
           });
 
-          controller.enqueue(
-            ndjson({
-              type: "error",
-              message: "Search could not complete. Try a different query.",
-            }),
-          );
+          send({
+            type: "error",
+            message: "Search could not complete. Try a different query.",
+          });
           return;
         }
 
         // Everything the learner reads is looked up here, from stored data.
         const results = await hydrateResults(answer);
 
-        controller.enqueue(
-          ndjson({
-            type: "results",
-            query,
-            results,
-            resultCount: results.length,
-            courseCount: countCourses(results),
-            reply: answer.reply || null,
-          }),
-        );
+        send({
+          type: "results",
+          query,
+          results,
+          resultCount: results.length,
+          courseCount: countCourses(results),
+          reply: answer.reply || null,
+        });
       } catch (error) {
-        console.error("[search]", error);
-        controller.enqueue(
-          ndjson({ type: "error", message: "Search is unavailable right now." }),
-        );
+        // An abort is the learner leaving or the deadline passing, not a fault.
+        if (abort.aborted) {
+          console.warn("[search] aborted:", abort.reason?.name ?? "aborted");
+        } else {
+          console.error("[search]", error);
+          send({ type: "error", message: "Search is unavailable right now." });
+        }
       } finally {
         await mcpClient?.close().catch(() => {});
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Already closed by the disconnect.
+        }
       }
     },
   });

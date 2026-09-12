@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 
 import { captureEvent } from "@/app/lib/posthog-client";
 
@@ -29,6 +29,33 @@ export function LessonTabs({
 }) {
   const [active, setActive] = useState<TabId>("content");
   const baseId = useId();
+  const tabRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({});
+
+  /** Selects a tab and moves focus with it, as a tablist is expected to. */
+  function selectTab(id: TabId) {
+    setActive(id);
+    tabRefs.current[id]?.focus();
+    captureEvent("lesson_tab_selected", {tab: id, lesson_slug: lessonSlug});
+  }
+
+  /**
+   * `role="tablist"` promises arrow-key navigation, and a roving tabindex so
+   * Tab moves past the tablist rather than through every tab.
+   * https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
+   */
+  function onTabKeyDown(event: React.KeyboardEvent, index: number) {
+    const last = tabs.length - 1;
+    let next: number | null = null;
+
+    if (event.key === "ArrowRight") next = index === last ? 0 : index + 1;
+    else if (event.key === "ArrowLeft") next = index === 0 ? last : index - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+
+    if (next === null) return;
+    event.preventDefault();
+    selectTab(tabs[next].id);
+  }
 
   return (
     <div>
@@ -37,23 +64,22 @@ export function LessonTabs({
         aria-label="Lesson"
         className="flex items-center gap-8 border-b border-neutral-200"
       >
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const selected = active === tab.id;
           return (
             <button
               key={tab.id}
               id={`${baseId}-tab-${tab.id}`}
+              ref={(node) => {
+                tabRefs.current[tab.id] = node;
+              }}
               role="tab"
               type="button"
               aria-selected={selected}
               aria-controls={`${baseId}-panel-${tab.id}`}
-              onClick={() => {
-                setActive(tab.id);
-                captureEvent("lesson_tab_selected", {
-                  tab: tab.id,
-                  lesson_slug: lessonSlug,
-                });
-              }}
+              tabIndex={selected ? 0 : -1}
+              onKeyDown={(event) => onTabKeyDown(event, index)}
+              onClick={() => selectTab(tab.id)}
               className={`-mb-px border-b-2 px-1 pb-3 text-body-lg outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-400 ${
                 selected
                   ? "border-primary-500 font-medium text-primary-500"

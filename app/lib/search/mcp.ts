@@ -54,7 +54,9 @@ function initialContextUrl(): string {
  * previous value rather than dropping the agent's schema on the floor — which
  * also means an instructions edit lands on the next cold fetch, within the TTL.
  */
-export async function fetchInitialContext(): Promise<string | null> {
+export async function fetchInitialContext(
+  signal?: AbortSignal,
+): Promise<string | null> {
   const isStale = Date.now() - cachedAt > CACHE_TTL_MS;
   if (cachedInitialContext && !isStale) return cachedInitialContext;
 
@@ -62,6 +64,7 @@ export async function fetchInitialContext(): Promise<string | null> {
     const response = await fetch(initialContextUrl(), {
       headers: authHeaders(),
       cache: "no-store",
+      signal,
     });
 
     if (response.ok) {

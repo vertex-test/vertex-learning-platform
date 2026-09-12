@@ -48,10 +48,15 @@ function sortResults(
   if (sort === "relevance") return results;
 
   const direction = sort === "shortest" ? 1 : -1;
-  return [...results].sort(
-    (a, b) =>
-      direction * ((a.durationSeconds ?? 0) - (b.durationSeconds ?? 0)),
-  );
+  return [...results].sort((a, b) => {
+    // An unknown duration is not a zero-length lesson: sorting it as 0 would
+    // put it first under "shortest". Unknowns go last either way.
+    if (a.durationSeconds == null || b.durationSeconds == null) {
+      if (a.durationSeconds == null && b.durationSeconds == null) return 0;
+      return a.durationSeconds == null ? 1 : -1;
+    }
+    return direction * (a.durationSeconds - b.durationSeconds);
+  });
 }
 
 function ResultSkeleton() {
@@ -270,7 +275,10 @@ export function SearchResults({ query }: { query: string }) {
           ))}
       </div>
 
-      {!isLoading && (
+      {/* Only after a search actually succeeded: under an error it would read
+          as "no matches" when the truth is that the search never ran, and on
+          the bare /search page there is nothing for it to close. */}
+      {state.status === "done" && (
         <div className="mt-3">
           <SearchEmptyState />
         </div>

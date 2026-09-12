@@ -96,7 +96,9 @@ export async function generateMetadata(
   if (!lesson) return { title: "Lesson not found" };
 
   return {
-    title: `${lesson.title} — Vertex`,
+    // `title` is nullable in TypeGen (required is enforced in the Studio, not
+    // in the type system), and the same fallback is used in the heading below.
+    title: `${lesson.title ?? "Lesson"} — Vertex`,
     description: lesson.summary ?? undefined,
   };
 }
@@ -321,7 +323,7 @@ function LessonHeader({
           <h1
             className={`font-display text-[clamp(2rem,4vw,3.25rem)] leading-[1.12] font-bold text-neutral-900 ${label ? "mt-4" : ""}`}
           >
-            {lesson.title}
+            {lesson.title ?? "Lesson"}
           </h1>
 
           <p className="mt-4 max-w-[60ch] text-body-lg text-neutral-700">

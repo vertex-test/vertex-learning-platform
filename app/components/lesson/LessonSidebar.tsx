@@ -124,20 +124,33 @@ function ModuleList({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* From `lg` up the outline is always open, so the control is not a
+          disclosure any more — it becomes plain text. Merely blocking the
+          mouse there would leave it focusable and still flip `aria-expanded`,
+          announcing a collapse that never happens. */}
       <button
         type="button"
         aria-expanded={outlineOpen}
         aria-controls={outlineId}
         onClick={() => setOutlineOpen((open) => !open)}
-        className="flex w-full items-center justify-between gap-2 px-6 py-4 text-left text-body-lg text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset lg:pointer-events-none"
+        className="flex w-full items-center justify-between gap-2 px-6 py-4 text-left text-body-lg text-neutral-900 outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-inset lg:hidden"
       >
         Module {currentModuleNumber} of {moduleCount}
         <ChevronDown
           aria-hidden="true"
-          className={`h-5 w-5 text-neutral-500 transition-transform ${outlineOpen ? "rotate-180" : ""} lg:rotate-0`}
+          className={`h-5 w-5 text-neutral-500 transition-transform ${outlineOpen ? "rotate-180" : ""}`}
           strokeWidth={2}
         />
       </button>
+
+      <p className="hidden w-full items-center justify-between gap-2 px-6 py-4 text-body-lg text-neutral-900 lg:flex">
+        Module {currentModuleNumber} of {moduleCount}
+        <ChevronDown
+          aria-hidden="true"
+          className="h-5 w-5 text-neutral-500"
+          strokeWidth={2}
+        />
+      </p>
 
       <ul id={outlineId} className={outlineOpen ? "block" : "hidden lg:block"}>
         {modules.map((module, index) => {
